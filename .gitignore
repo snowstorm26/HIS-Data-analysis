@@ -126,6 +126,9 @@ venv.bak/
 #Ignoring the data dowloaded from SOLO Archive
 Data/
 
+HIS speed timeseries data 2022 (Jonathan)/
+speed data 2022/
+
 #Ignoring PDF files and Jupyter Notebooks
 *.pdf
 *.ipynb

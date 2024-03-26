@@ -24,12 +24,15 @@ my_cmap = cm.get_cmap("jet",1024*16)
 my_cmap.set_under('w')
         
 
+
+    
+
 class HIS_PHA(object):
     """
     Class to analyze SolO/SWA/HIS data.
     Class methods are explained shortly in a docstring for each method. More documentation will follow...
     """
-    def __init__(self,date=(2022,9,16),version="V02",inpath="Data/", load_prates=False):
+    def __init__(self,date=(2022,7,18),version="V02",inpath="Data/", load_prates=False):
         
         #load file (includes 1 day of HIS PHA data (=raw data)
         dyear=date[0]
@@ -205,10 +208,16 @@ class HIS_PHA(object):
         Cs,tb,sb=np.histogram2d(doy_He2,step_He2, [bins_doy, bins_step])
         Cv,tb,vb=np.histogram2d(doy_He2,vels_He2, [bins_doy, bins_vel])
         
+        #spalten_summen = np.sum(Cv, axis=0)
+        #print(spalten_summen.shape)
+        #fig, ax1 = plt.subplots(1,1)
+        
+        #ax1.plot(self.udoy,spalten_summen)
         if pr_cor==True:
             pr_weights=self.rates_alpha[:,:,elev_ind]
             Cs=Cs*pr_weights         
             Cv=Cv*pr_weights 
+        
         
         if plot_hist==True:
             fig, ax = plt.subplots(1,1)
@@ -244,6 +253,7 @@ class HIS_PHA(object):
             fig, ax = plt.subplots(1,1)
             my_cmap.set_under('w')
             Cont1=ax.pcolormesh(tb,vb,Cv.T,cmap=my_cmap, norm=colors.LogNorm(vmin=1,vmax=max(np.ravel(Cv))))
+            #ax.set_xlim(205.76,205.79)
             ax.set_ylabel("speed [km/s]")
             ax.set_xlabel("time [DOY 2022]")
             cb1 = fig.colorbar(Cont1)
@@ -260,15 +270,25 @@ class HIS_PHA(object):
         """
         return ampl*np.exp(-(x-mean)**2/(2*std_dev**2))
     
-    def calc_mean_speed(self, step_ind=29, pr_cor=True, save_to_file=False, plot_hist=False):
+    def calc_mean_speed(self, uepoch_ind=0, step_ind=29, pr_cor=True, save_to_file=False, plot_hist=False, plot_1D_cut=False):
         Cv,tb,vb = self.calc_alpha_counthist(pr_cor=pr_cor, plot_hist=False)
         mean_speed_edge_uncorr = np.sum(Cv * vb[:-1], axis=1) / np.sum(Cv, axis=1)
-        mean_speed = np.zeros(len(self.uepoch))
-        quality_flag = np.zeros(len(self.uepoch)) # 0: v < 650 km/s no fit, 1: v > 700 km/s gauss-fit, 2: 650 < v < 700 untrustworthy
+        mean_speed = np.zeros(len(self.uepoch)) 
+        mask = np.where(np.sum(Cv, axis=1)== 0) #mask for values with 0 
+
+        
+        quality_flag = np.zeros(len(self.uepoch)) #-1: less then 10000 counts data not reliable enough,  0: v < 650 km/s no fit, 1: v > 700 km/s gauss-fit, 2: 650 < v < 700 untrustworthy
         
         # TODO: optimize the range where the fit method is used
         for ind in range(len(self.uepoch)):
-            if mean_speed_edge_uncorr[ind] < 650:
+            #summe = np.sum(Cv[ind]) 
+            #sum_counts.append(summe)
+            if np.sum(Cv[ind] ) < 10000:
+                quality_flag[ind] = -1
+                mean_speed[ind]= mean_speed_edge_uncorr[ind]
+                #mean_speed[ind] = 0
+            #TODO no counts under 400 km/s quality flag -1
+            elif mean_speed_edge_uncorr[ind] < 650:
                 mean_speed[ind] = mean_speed_edge_uncorr[ind]
                 quality_flag[ind] = 0
             
@@ -291,7 +311,11 @@ class HIS_PHA(object):
             else:
                 mean_speed[ind] = mean_speed_edge_uncorr[ind]
                 quality_flag[ind] = 2
-        
+        #sum_counts.append(0)
+        #plt.figure()
+        #plt.plot(tb,sum_counts)
+        #plt.yscale("log")
+        #plt.xlim(323.2,323.3)
         if save_to_file==True:
             filename = self.date_str
             np.savetxt('speed data 2022/'+filename+'.txt', np.column_stack((self.udoy, mean_speed, quality_flag)), delimiter=' ')
@@ -300,10 +324,24 @@ class HIS_PHA(object):
             fig, ax = plt.subplots(1,1, figsize=(6,4))
             my_cmap.set_under('w')
             Cont1=ax.pcolormesh(tb,vb,Cv.T,cmap=my_cmap, norm=colors.LogNorm(vmin=1,vmax=max(np.ravel(Cv)))) # 5299579.02696228))
+            ax.set_ylim(0,1000)
             ax.set_ylabel("speed [km/s]")
             ax.set_xlabel("time [DOY 2022]")
+            ax.plot(self.udoy,mean_speed)
             cb1 = fig.colorbar(Cont1)
             cb1.set_label(r"He$^{2+}$ counts per bin")
+        if plot_1D_cut==True:
+            fig, ax = plt.subplots(1,1)
+            ax.plot(self.uvels_He2, Cv[uepoch_ind,:], 'o')
+            #ax.plot(self.uvels_He2[step_ind-1], Cv[uepoch_ind,step_ind-1], marker='o', color='red')
+            ax.set_xlim(0,500)
+            ax.set_xlabel("speed [km/s]")
+            ax.set_ylabel("PHA counts")
+            ax.grid(True)
+            if pr_cor==True:
+                ax.set_title(f"pr-corr. speed-dist. for He2+, DOY={self.udoy[uepoch_ind]:.5f}")
+            else:
+                ax.set_title(f"uncorr. speed-dist. for He2+, DOY={self.udoy[uepoch_ind]:.5f}")
             
         return Cv,tb,vb
         
@@ -312,9 +350,6 @@ class HIS_PHA(object):
         
         mean_speed_edge_uncorr = np.sum(Cv * vb[:-1], axis=1) / np.sum(Cv, axis=1)
         thermal_velocity = np.zeros_like(mean_speed_edge_uncorr)
-        
-            
-
         
         if rescale_fit_mirror==True:
             for ind in range(len(self.uepoch)):
@@ -1008,12 +1043,8 @@ class HIS_PHA(object):
         ax.set_ylabel("azim. angle [deg]")
         plt.savefig('HIS_azimuth_speed_hist_50_min_avg_20230120.png', dpi=400)
         # plt.close()
-        return
-    
-
-        
-        
-        
+        return    
+                
 class HIS_Rates(object):            
     """
     Auxilliary class to load the HIS priority rates to correct the PHA data.

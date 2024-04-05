@@ -127,14 +127,13 @@ venv.bak/
 Data/
 
 HIS speed timeseries data 2022 (Jonathan)/
-speed data 2022/
-speed data 2022 (with speed limit)/
-speed data 2022 (with count limit)/
+his_timeseries/
 
 #Ignoring PDF files and Jupyter Notebooks and PNG Images
 *.pdf
 *.ipynb
 *.png
+*.txt
 
 
 

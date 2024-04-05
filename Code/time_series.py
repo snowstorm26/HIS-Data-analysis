@@ -6,7 +6,7 @@ import os
 doy = []
 speed = []
 estimation_method = []
-directory = "HIS speed timeseries data 2022/"
+directory = "speed data 2022/"
 filenames = [file for file in os.listdir(directory) if os.path.isfile(os.path.join(directory, file))]
 for file in filenames:
     path = directory + file
